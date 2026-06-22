@@ -9,18 +9,17 @@
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --off-white: #F3F2EE;
-    --hellgrau: #DBDBDB;
-    --taupe: #827B6D;
-    --anthrazit: #1C1C1C;
-    --orange: #D7662F;
-    --font: 'Inter', Arial, sans-serif;
+    --off-white: #F3F2EE; --hellgrau: #DBDBDB; --taupe: #827B6D;
+    --anthrazit: #1C1C1C; --orange: #D7662F; --font: 'Inter', Arial, sans-serif;
   }
   html, body { height: 100%; background: var(--off-white); color: var(--anthrazit); font-family: var(--font); font-size: 14px; line-height: 1.5; }
   .app { display: grid; grid-template-rows: 56px 1fr 80px; height: 100vh; max-width: 860px; margin: 0 auto; }
   header { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; border-bottom: 1px solid var(--hellgrau); background: var(--off-white); }
   .logo { font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--anthrazit); }
   .logo span { color: var(--taupe); font-weight: 400; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .settings-btn { font-size: 11px; color: var(--taupe); background: none; border: none; cursor: pointer; font-family: var(--font); padding: 4px 8px; letter-spacing: 0.05em; }
+  .settings-btn:hover { color: var(--anthrazit); }
   .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--hellgrau); transition: background 0.3s; }
   .status-dot.active { background: #6ab04c; }
   .status-dot.loading { background: var(--orange); }
@@ -44,6 +43,16 @@
   button.send { width: 40px; height: 40px; border: none; background: var(--anthrazit); color: var(--off-white); cursor: pointer; border-radius: 2px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
   button.send:hover { background: var(--taupe); }
   button.send:disabled { background: var(--hellgrau); cursor: not-allowed; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(28,28,28,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { background: var(--off-white); border: 1px solid var(--hellgrau); padding: 40px; width: 480px; border-radius: 2px; }
+  .modal h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; color: var(--anthrazit); }
+  .modal p { font-size: 12.5px; color: var(--taupe); margin-bottom: 24px; line-height: 1.6; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--taupe); margin-bottom: 6px; }
+  .field input { width: 100%; padding: 10px 12px; border: 1px solid var(--hellgrau); background: white; font-family: var(--font); font-size: 13px; color: var(--anthrazit); border-radius: 2px; outline: none; }
+  .field input:focus { border-color: var(--taupe); }
+  button.primary { width: 100%; padding: 12px; background: var(--anthrazit); color: var(--off-white); border: none; font-family: var(--font); font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; border-radius: 2px; margin-top: 8px; transition: background 0.15s; }
+  button.primary:hover { background: var(--taupe); }
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 16px; }
   .empty-state .yttp-mark { font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--hellgrau); }
   .empty-state h1 { font-size: 18px; font-weight: 500; color: var(--anthrazit); text-align: center; }
@@ -54,21 +63,35 @@
 </style>
 </head>
 <body>
+<div id="modal-overlay" class="modal-overlay">
+  <div class="modal">
+    <h2>Konfiguration</h2>
+    <p>Einmalig einrichten. Die URL wird nur lokal in deinem Browser gespeichert.</p>
+    <div class="field">
+      <label>Edge Function URL</label>
+      <input type="text" id="webhook-input" placeholder="https://xxx.supabase.co/functions/v1/hr-assistant" />
+    </div>
+    <button class="primary" onclick="saveConfig()">Speichern und starten</button>
+  </div>
+</div>
 <div class="app">
   <header>
     <div class="logo">YTTP <span>HR Assistent</span></div>
-    <div id="status-dot" class="status-dot active"></div>
+    <div class="header-right">
+      <button class="settings-btn" onclick="openSettings()">Einstellungen</button>
+      <div id="status-dot" class="status-dot"></div>
+    </div>
   </header>
   <div class="messages" id="messages">
     <div class="empty-state" id="empty-state">
       <div class="yttp-mark">YTTP</div>
       <h1>HR Assistent</h1>
-      <p>Stelle Fragen zu Mitarbeitern und Abwesenheiten — Köln, Berlin und Hamburg.</p>
+      <p>Fragen zu Mitarbeitern, Abwesenheiten und Schichten — standortübergreifend für Köln, Berlin und Hamburg.</p>
       <div class="quick-questions">
         <button class="quick-question" onclick="askQuestion('Wie viele Mitarbeiter haben wir insgesamt?')">Wie viele Mitarbeiter haben wir insgesamt?</button>
-        <button class="quick-question" onclick="askQuestion('Welche Mitarbeiter sind in Berlin?')">Welche Mitarbeiter sind in Berlin?</button>
-        <button class="quick-question" onclick="askQuestion('Wer ist aktuell im Urlaub in Köln?')">Wer ist aktuell im Urlaub in Köln?</button>
-        <button class="quick-question" onclick="askQuestion('Welche Abwesenheiten gibt es im Juli in Hamburg?')">Welche Abwesenheiten gibt es im Juli in Hamburg?</button>
+        <button class="quick-question" onclick="askQuestion('Wer ist aktuell im Urlaub?')">Wer ist aktuell im Urlaub?</button>
+        <button class="quick-question" onclick="askQuestion('Welcher Standort hatte diesen Monat die meisten Schichten?')">Welcher Standort hatte diesen Monat die meisten Schichten?</button>
+        <button class="quick-question" onclick="askQuestion('Bei welchen Mitarbeitern gibt es die größten Soll-Ist-Abweichungen diesen Monat?')">Größte Soll-Ist-Abweichungen diesen Monat?</button>
       </div>
     </div>
   </div>
@@ -80,8 +103,35 @@
   </div>
 </div>
 <script>
-  const EDGE_FUNCTION_URL = 'https://nlfhkmbrvxxkavxzaqik.supabase.co/functions/v1/hr-assistant';
+  const EDGE_URL = 'https://nlfhkmbrvxxkavxzaqik.supabase.co/functions/v1/hr-assistant';
   let isLoading = false;
+
+  function saveConfig() {
+    const url = document.getElementById('webhook-input').value.trim();
+    if (!url) { alert('Bitte die URL eintragen.'); return; }
+    localStorage.setItem('yttp_hr_url', url);
+    document.getElementById('modal-overlay').style.display = 'none';
+    document.getElementById('status-dot').className = 'status-dot active';
+  }
+
+  function openSettings() {
+    document.getElementById('webhook-input').value = localStorage.getItem('yttp_hr_url') || EDGE_URL;
+    document.getElementById('modal-overlay').style.display = 'flex';
+  }
+
+  window.onload = () => {
+    const saved = localStorage.getItem('yttp_hr_url');
+    if (saved) {
+      document.getElementById('modal-overlay').style.display = 'none';
+      document.getElementById('status-dot').className = 'status-dot active';
+    } else {
+      document.getElementById('webhook-input').value = EDGE_URL;
+    }
+  };
+
+  function getEdgeUrl() {
+    return localStorage.getItem('yttp_hr_url') || EDGE_URL;
+  }
 
   function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
   function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
@@ -126,7 +176,7 @@
     showLoading();
 
     try {
-      const res = await fetch(EDGE_FUNCTION_URL, {
+      const res = await fetch(getEdgeUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: text })
@@ -136,7 +186,7 @@
       addMessage('assistant', data.answer || data.error || 'Keine Antwort erhalten.');
     } catch(err) {
       hideLoading();
-      addMessage('assistant', `Fehler: ${err.message}`);
+      addMessage('assistant', `Verbindungsfehler: ${err.message}`);
     }
 
     isLoading = false;
