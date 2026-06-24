@@ -43,15 +43,17 @@
   button.send { width: 40px; height: 40px; border: none; background: var(--anthrazit); color: var(--off-white); cursor: pointer; border-radius: 2px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
   button.send:hover { background: var(--taupe); }
   button.send:disabled { background: var(--hellgrau); cursor: not-allowed; }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(28,28,28,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
-  .modal { background: var(--off-white); border: 1px solid var(--hellgrau); padding: 40px; width: 480px; border-radius: 2px; }
-  .modal h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; color: var(--anthrazit); }
-  .modal p { font-size: 12.5px; color: var(--taupe); margin-bottom: 24px; line-height: 1.6; }
+  .overlay { position: fixed; inset: 0; background: var(--off-white); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { background: white; border: 1px solid var(--hellgrau); padding: 48px; width: 400px; border-radius: 2px; }
+  .modal-logo { font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--hellgrau); margin-bottom: 24px; }
+  .modal h2 { font-size: 18px; font-weight: 500; color: var(--anthrazit); margin-bottom: 8px; }
+  .modal p { font-size: 12.5px; color: var(--taupe); margin-bottom: 32px; line-height: 1.6; }
   .field { margin-bottom: 16px; }
   .field label { display: block; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--taupe); margin-bottom: 6px; }
-  .field input { width: 100%; padding: 10px 12px; border: 1px solid var(--hellgrau); background: white; font-family: var(--font); font-size: 13px; color: var(--anthrazit); border-radius: 2px; outline: none; }
-  .field input:focus { border-color: var(--taupe); }
-  button.primary { width: 100%; padding: 12px; background: var(--anthrazit); color: var(--off-white); border: none; font-family: var(--font); font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; border-radius: 2px; margin-top: 8px; transition: background 0.15s; }
+  .field input { width: 100%; padding: 11px 14px; border: 1px solid var(--hellgrau); background: var(--off-white); font-family: var(--font); font-size: 13px; color: var(--anthrazit); border-radius: 2px; outline: none; transition: border-color 0.15s; }
+  .field input:focus { border-color: var(--taupe); background: white; }
+  .error-msg { font-size: 12px; color: var(--orange); margin-top: 8px; display: none; }
+  button.primary { width: 100%; padding: 13px; background: var(--anthrazit); color: var(--off-white); border: none; font-family: var(--font); font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; border-radius: 2px; margin-top: 8px; transition: background 0.15s; }
   button.primary:hover { background: var(--taupe); }
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 16px; }
   .empty-state .yttp-mark { font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--hellgrau); }
@@ -63,10 +65,28 @@
 </style>
 </head>
 <body>
-<div id="modal-overlay" class="modal-overlay">
+
+<!-- Login -->
+<div id="login-overlay" class="overlay">
   <div class="modal">
+    <div class="modal-logo">YTTP</div>
+    <h2>HR Assistent</h2>
+    <p>Interner Zugang. Bitte Passwort eingeben.</p>
+    <div class="field">
+      <label>Passwort</label>
+      <input type="password" id="pw-input" placeholder="Passwort" onkeydown="if(event.key==='Enter') login()" />
+    </div>
+    <div class="error-msg" id="pw-error">Falsches Passwort. Bitte erneut versuchen.</div>
+    <button class="primary" onclick="login()">Anmelden</button>
+  </div>
+</div>
+
+<!-- Config Modal -->
+<div id="config-overlay" class="overlay" style="display:none;">
+  <div class="modal">
+    <div class="modal-logo">YTTP</div>
     <h2>Konfiguration</h2>
-    <p>Einmalig einrichten. Die URL wird nur lokal in deinem Browser gespeichert.</p>
+    <p>Einmalig einrichten. Die URL wird lokal gespeichert.</p>
     <div class="field">
       <label>Edge Function URL</label>
       <input type="text" id="webhook-input" placeholder="https://xxx.supabase.co/functions/v1/hr-assistant" />
@@ -74,11 +94,12 @@
     <button class="primary" onclick="saveConfig()">Speichern und starten</button>
   </div>
 </div>
-<div class="app">
+
+<div class="app" id="app" style="display:none;">
   <header>
     <div class="logo">YTTP <span>HR Assistent</span></div>
     <div class="header-right">
-      <button class="settings-btn" onclick="openSettings()">Einstellungen</button>
+      <button class="settings-btn" onclick="logout()">Abmelden</button>
       <div id="status-dot" class="status-dot"></div>
     </div>
   </header>
@@ -91,7 +112,7 @@
         <button class="quick-question" onclick="askQuestion('Wie viele Mitarbeiter haben wir insgesamt?')">Wie viele Mitarbeiter haben wir insgesamt?</button>
         <button class="quick-question" onclick="askQuestion('Wer ist aktuell im Urlaub?')">Wer ist aktuell im Urlaub?</button>
         <button class="quick-question" onclick="askQuestion('Welcher Standort hatte diesen Monat die meisten Schichten?')">Welcher Standort hatte diesen Monat die meisten Schichten?</button>
-        <button class="quick-question" onclick="askQuestion('Bei welchen Mitarbeitern gibt es die größten Soll-Ist-Abweichungen diesen Monat?')">Größte Soll-Ist-Abweichungen diesen Monat?</button>
+        <button class="quick-question" onclick="askQuestion('Wann stehen die nächsten Mitarbeitergespräche an?')">Wann stehen die nächsten Mitarbeitergespräche an?</button>
       </div>
     </div>
   </div>
@@ -102,36 +123,67 @@
     </button>
   </div>
 </div>
+
 <script>
   const EDGE_URL = 'https://nlfhkmbrvxxkavxzaqik.supabase.co/functions/v1/hr-assistant';
+  // Passwort als Hash — aendere diesen Wert um das Passwort zu setzen
+  // Standard-Passwort: yttp2024hr (bitte nach erstem Login aendern)
+  const PW_HASH = 'd8b5a2398e0cb52ae59487324f2767ef6ce54dc0d6ebf0379aa48006be171a61';
   let isLoading = false;
+
+  async function hashPassword(pw) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function login() {
+    const pw = document.getElementById('pw-input').value;
+    const hash = await hashPassword(pw);
+    if (hash === PW_HASH) {
+      sessionStorage.setItem('yttp_auth', '1');
+      document.getElementById('login-overlay').style.display = 'none';
+      startApp();
+    } else {
+      document.getElementById('pw-error').style.display = 'block';
+      document.getElementById('pw-input').value = '';
+      document.getElementById('pw-input').focus();
+    }
+  }
+
+  function logout() {
+    sessionStorage.removeItem('yttp_auth');
+    location.reload();
+  }
+
+  function startApp() {
+    document.getElementById('app').style.display = 'grid';
+    const saved = localStorage.getItem('yttp_hr_url');
+    if (!saved) {
+      document.getElementById('webhook-input').value = EDGE_URL;
+      document.getElementById('config-overlay').style.display = 'flex';
+    } else {
+      document.getElementById('status-dot').className = 'status-dot active';
+    }
+  }
 
   function saveConfig() {
     const url = document.getElementById('webhook-input').value.trim();
-    if (!url) { alert('Bitte die URL eintragen.'); return; }
+    if (!url) return;
     localStorage.setItem('yttp_hr_url', url);
-    document.getElementById('modal-overlay').style.display = 'none';
+    document.getElementById('config-overlay').style.display = 'none';
     document.getElementById('status-dot').className = 'status-dot active';
   }
 
-  function openSettings() {
-    document.getElementById('webhook-input').value = localStorage.getItem('yttp_hr_url') || EDGE_URL;
-    document.getElementById('modal-overlay').style.display = 'flex';
-  }
+  function getEdgeUrl() { return localStorage.getItem('yttp_hr_url') || EDGE_URL; }
 
   window.onload = () => {
-    const saved = localStorage.getItem('yttp_hr_url');
-    if (saved) {
-      document.getElementById('modal-overlay').style.display = 'none';
-      document.getElementById('status-dot').className = 'status-dot active';
+    if (sessionStorage.getItem('yttp_auth') === '1') {
+      document.getElementById('login-overlay').style.display = 'none';
+      startApp();
     } else {
-      document.getElementById('webhook-input').value = EDGE_URL;
+      document.getElementById('pw-input').focus();
     }
   };
-
-  function getEdgeUrl() {
-    return localStorage.getItem('yttp_hr_url') || EDGE_URL;
-  }
 
   function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
   function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
@@ -166,15 +218,12 @@
     const input = document.getElementById('input');
     const text = input.value.trim();
     if (!text) return;
-
     input.value = ''; input.style.height = 'auto';
     isLoading = true;
     document.getElementById('send-btn').disabled = true;
     document.getElementById('status-dot').className = 'status-dot loading';
-
     addMessage('user', text);
     showLoading();
-
     try {
       const res = await fetch(getEdgeUrl(), {
         method: 'POST',
@@ -188,7 +237,6 @@
       hideLoading();
       addMessage('assistant', `Verbindungsfehler: ${err.message}`);
     }
-
     isLoading = false;
     document.getElementById('send-btn').disabled = false;
     document.getElementById('status-dot').className = 'status-dot active';
