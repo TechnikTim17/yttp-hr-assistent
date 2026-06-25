@@ -122,11 +122,11 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sZmhrbWJydnh4a2F2eHphcWlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MzM1NzksImV4cCI6MjA5NzEwOTU3OX0.mR-Fsj1lFZeZnujglm4pwJzFZWiDXGVgyuTUzwB5obg';
   const EDGE_URL = 'https://nlfhkmbrvxxkavxzaqik.supabase.co/functions/v1/hr-assistant';
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   let isLoading = false;
 
   window.onload = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await sbClient.auth.getSession();
     if (session) {
       startApp(session);
     } else {
@@ -142,7 +142,7 @@
     err.style.display = 'none';
     btn.disabled = true;
     btn.textContent = 'Anmelden...';
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+    const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pw });
     if (error || !data.session) {
       err.style.display = 'block';
       btn.disabled = false;
@@ -162,7 +162,7 @@
   }
 
   async function logout() {
-    await supabase.auth.signOut();
+    await sbClient.auth.signOut();
     location.reload();
   }
 
@@ -202,7 +202,7 @@
     const text = input.value.trim();
     if (!text) return;
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await sbClient.auth.getSession();
     if (!session) { location.reload(); return; }
 
     input.value = ''; input.style.height = 'auto';
