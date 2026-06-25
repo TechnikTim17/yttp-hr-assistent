@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YTTP HR Assistent</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -18,6 +19,7 @@
   .logo { font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--anthrazit); }
   .logo span { color: var(--taupe); font-weight: 400; }
   .header-right { display: flex; align-items: center; gap: 12px; }
+  .user-email { font-size: 11px; color: var(--taupe); letter-spacing: 0.05em; }
   .settings-btn { font-size: 11px; color: var(--taupe); background: none; border: none; cursor: pointer; font-family: var(--font); padding: 4px 8px; letter-spacing: 0.05em; }
   .settings-btn:hover { color: var(--anthrazit); }
   .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--hellgrau); transition: background 0.3s; }
@@ -55,6 +57,7 @@
   .error-msg { font-size: 12px; color: var(--orange); margin-top: 8px; display: none; }
   button.primary { width: 100%; padding: 13px; background: var(--anthrazit); color: var(--off-white); border: none; font-family: var(--font); font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; border-radius: 2px; margin-top: 8px; transition: background 0.15s; }
   button.primary:hover { background: var(--taupe); }
+  button.primary:disabled { background: var(--hellgrau); cursor: not-allowed; }
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 16px; }
   .empty-state .yttp-mark { font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--hellgrau); }
   .empty-state h1 { font-size: 18px; font-weight: 500; color: var(--anthrazit); text-align: center; }
@@ -66,32 +69,21 @@
 </head>
 <body>
 
-<!-- Login -->
 <div id="login-overlay" class="overlay">
   <div class="modal">
     <div class="modal-logo">YTTP</div>
     <h2>HR Assistent</h2>
-    <p>Interner Zugang. Bitte Passwort eingeben.</p>
+    <p>Interner Zugang. Bitte mit deiner YTTP-E-Mail anmelden.</p>
+    <div class="field">
+      <label>E-Mail</label>
+      <input type="email" id="email-input" placeholder="vorname@yttp.de" autocomplete="email" />
+    </div>
     <div class="field">
       <label>Passwort</label>
-      <input type="password" id="pw-input" placeholder="Passwort" onkeydown="if(event.key==='Enter') login()" />
+      <input type="password" id="pw-input" placeholder="Passwort" onkeydown="if(event.key==='Enter') login()" autocomplete="current-password" />
     </div>
-    <div class="error-msg" id="pw-error">Falsches Passwort. Bitte erneut versuchen.</div>
-    <button class="primary" onclick="login()">Anmelden</button>
-  </div>
-</div>
-
-<!-- Config Modal -->
-<div id="config-overlay" class="overlay" style="display:none;">
-  <div class="modal">
-    <div class="modal-logo">YTTP</div>
-    <h2>Konfiguration</h2>
-    <p>Einmalig einrichten. Die URL wird lokal gespeichert.</p>
-    <div class="field">
-      <label>Edge Function URL</label>
-      <input type="text" id="webhook-input" placeholder="https://xxx.supabase.co/functions/v1/hr-assistant" />
-    </div>
-    <button class="primary" onclick="saveConfig()">Speichern und starten</button>
+    <div class="error-msg" id="pw-error">E-Mail oder Passwort falsch. Bitte erneut versuchen.</div>
+    <button class="primary" id="login-btn" onclick="login()">Anmelden</button>
   </div>
 </div>
 
@@ -99,6 +91,7 @@
   <header>
     <div class="logo">YTTP <span>HR Assistent</span></div>
     <div class="header-right">
+      <span class="user-email" id="user-email"></span>
       <button class="settings-btn" onclick="logout()">Abmelden</button>
       <div id="status-dot" class="status-dot"></div>
     </div>
@@ -117,7 +110,7 @@
     </div>
   </div>
   <div class="input-area">
-    <textarea id="input" rows="1" placeholder="Frage stellen..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <textarea id="input" rows="1" placeholder="Frage stellen..." onkeydown="handleKey(event)" oninput="autoResize(this)" maxlength="2000"></textarea>
     <button class="send" id="send-btn" onclick="sendMessage()">
       <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
@@ -125,65 +118,53 @@
 </div>
 
 <script>
+  const SUPABASE_URL = 'https://nlfhkmbrvxxkavxzaqik.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sZmhrbWJydnh4a2F2eHphcWlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MzM1NzksImV4cCI6MjA5NzEwOTU3OX0.mR-Fsj1lFZeZnujglm4pwJzFZWiDXGVgyuTUzwB5obg';
   const EDGE_URL = 'https://nlfhkmbrvxxkavxzaqik.supabase.co/functions/v1/hr-assistant';
-  // Passwort als Hash — aendere diesen Wert um das Passwort zu setzen
-  // Standard-Passwort: yttp2024hr (bitte nach erstem Login aendern)
-  const PW_HASH = 'd8b5a2398e0cb52ae59487324f2767ef6ce54dc0d6ebf0379aa48006be171a61';
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   let isLoading = false;
 
-  async function hashPassword(pw) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-  }
+  window.onload = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      startApp(session);
+    } else {
+      document.getElementById('email-input').focus();
+    }
+  };
 
   async function login() {
+    const email = document.getElementById('email-input').value.trim();
     const pw = document.getElementById('pw-input').value;
-    const hash = await hashPassword(pw);
-    if (hash === PW_HASH) {
-      sessionStorage.setItem('yttp_auth', '1');
-      document.getElementById('login-overlay').style.display = 'none';
-      startApp();
-    } else {
-      document.getElementById('pw-error').style.display = 'block';
+    const btn = document.getElementById('login-btn');
+    const err = document.getElementById('pw-error');
+    err.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Anmelden...';
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+    if (error || !data.session) {
+      err.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Anmelden';
       document.getElementById('pw-input').value = '';
       document.getElementById('pw-input').focus();
+      return;
     }
+    startApp(data.session);
   }
 
-  function logout() {
-    sessionStorage.removeItem('yttp_auth');
-    location.reload();
-  }
-
-  function startApp() {
+  function startApp(session) {
+    document.getElementById('login-overlay').style.display = 'none';
     document.getElementById('app').style.display = 'grid';
-    const saved = localStorage.getItem('yttp_hr_url');
-    if (!saved) {
-      document.getElementById('webhook-input').value = EDGE_URL;
-      document.getElementById('config-overlay').style.display = 'flex';
-    } else {
-      document.getElementById('status-dot').className = 'status-dot active';
-    }
-  }
-
-  function saveConfig() {
-    const url = document.getElementById('webhook-input').value.trim();
-    if (!url) return;
-    localStorage.setItem('yttp_hr_url', url);
-    document.getElementById('config-overlay').style.display = 'none';
+    document.getElementById('user-email').textContent = session.user.email;
     document.getElementById('status-dot').className = 'status-dot active';
   }
 
-  function getEdgeUrl() { return localStorage.getItem('yttp_hr_url') || EDGE_URL; }
-
-  window.onload = () => {
-    if (sessionStorage.getItem('yttp_auth') === '1') {
-      document.getElementById('login-overlay').style.display = 'none';
-      startApp();
-    } else {
-      document.getElementById('pw-input').focus();
-    }
-  };
+  async function logout() {
+    await supabase.auth.signOut();
+    location.reload();
+  }
 
   function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
   function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
@@ -195,7 +176,9 @@
     const msgs = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = `message ${role}`;
-    div.innerHTML = `<div class="message-label">${role === 'user' ? 'Du' : 'HR Assistent'}</div><div class="message-bubble">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+    const label = role === 'user' ? 'Du' : 'HR Assistent';
+    const safe = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    div.innerHTML = `<div class="message-label">${label}</div><div class="message-bubble">${safe}</div>`;
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
   }
@@ -218,16 +201,24 @@
     const input = document.getElementById('input');
     const text = input.value.trim();
     if (!text) return;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { location.reload(); return; }
+
     input.value = ''; input.style.height = 'auto';
     isLoading = true;
     document.getElementById('send-btn').disabled = true;
     document.getElementById('status-dot').className = 'status-dot loading';
     addMessage('user', text);
     showLoading();
+
     try {
-      const res = await fetch(getEdgeUrl(), {
+      const res = await fetch(EDGE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + session.access_token
+        },
         body: JSON.stringify({ question: text })
       });
       const data = await res.json();
@@ -235,8 +226,9 @@
       addMessage('assistant', data.answer || data.error || 'Keine Antwort erhalten.');
     } catch(err) {
       hideLoading();
-      addMessage('assistant', `Verbindungsfehler: ${err.message}`);
+      addMessage('assistant', 'Verbindungsfehler. Bitte versuche es erneut.');
     }
+
     isLoading = false;
     document.getElementById('send-btn').disabled = false;
     document.getElementById('status-dot').className = 'status-dot active';
